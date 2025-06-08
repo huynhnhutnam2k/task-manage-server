@@ -7,15 +7,7 @@ let io;
 const initializeSocket = (server) => {
   io = socketIo(server, {
     cors: {
-      origin:
-        process.env.NODE_ENV === "production"
-          ? ["https://task-manage-gilt.vercel.app/"]
-          : [
-              "http://localhost:3000",
-              "http://localhost:5173",
-              "http://127.0.0.1:3000",
-              "http://127.0.0.1:5173",
-            ],
+      origin: true,
       methods: ["GET", "POST"],
       credentials: true,
     },
