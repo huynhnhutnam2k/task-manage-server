@@ -9,7 +9,7 @@ const initializeSocket = (server) => {
     cors: {
       origin:
         process.env.NODE_ENV === "production"
-          ? ["https://yourdomain.com"]
+          ? ["https://task-manage-gilt.vercel.app/"]
           : [
               "http://localhost:3000",
               "http://localhost:5173",

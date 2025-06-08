@@ -5,7 +5,11 @@ const Task = require("../models/task.model");
 const User = require("../models/user.model");
 
 const { BadRequestError, NotFoundError } = require("../core/error.response");
-const { buildPopulateArray, convertToObjectIdMongodb } = require("../utils");
+const {
+  buildPopulateArray,
+  convertToObjectIdMongodb,
+  getUnselectData,
+} = require("../utils");
 const EmailService = require("./email.service");
 
 class ProjectService {
@@ -14,11 +18,13 @@ class ProjectService {
       path: "created_by",
       select: "name email",
     },
-    tasks: {
-      path: "tasks",
-    },
+    // tasks: {
+    //   path: "tasks",
+    //   select: getUnselectData([''])
+    // },
     members: {
       path: "members",
+      select: getUnselectData(["__v"]),
     },
   };
 
@@ -138,6 +144,8 @@ class ProjectService {
   static addMember = async (projectId, members, invitation) => {
     const project = await Project.findById(projectId);
 
+    let message = "Add member success, please check invite's email";
+
     if (!project) {
       throw new BadRequestError("Project not found");
     }
@@ -159,6 +167,8 @@ class ProjectService {
       if (!sendEmail) {
         throw new BadRequestError("Send email failure");
       }
+
+      message = "Invite user success";
     } else {
       if (project.members.includes(member._id)) {
         throw new BadRequestError("No new members to add");
@@ -173,7 +183,10 @@ class ProjectService {
       throw new BadRequestError("Add member to project failure");
     }
 
-    return updatedProject;
+    return {
+      message,
+      updatedProject,
+    };
   };
 
   static joinProject = async (projectId, body) => {
@@ -212,7 +225,6 @@ class ProjectService {
 
   static getList = async (userId, params) => {
     const { includes } = params;
-
     const query = Project.find({
       //   members: { $in: userId },
       members: userId,

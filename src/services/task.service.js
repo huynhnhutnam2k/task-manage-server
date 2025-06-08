@@ -20,7 +20,10 @@ class TaskService {
       select: "name email",
     },
     subtasks: {
-      path: "task",
+      path: "subtasks",
+      populate: {
+        path: "user",
+      },
     },
   };
 
@@ -72,8 +75,11 @@ class TaskService {
       throw new BadRequestError("Update Task failure");
     }
 
+    // Handle subtask progress update for parent tasks
     if (updatedTask.parentId) {
-      const parentTask = await Task.findById(updatedTask.parentId);
+      const parentTask = await Task.findById(updatedTask.parentId).populate(
+        "subtasks"
+      );
       if (!parentTask) {
         throw new BadRequestError("Parent task not found");
       }
@@ -83,24 +89,36 @@ class TaskService {
         (subtask) => subtask.status === "done"
       ).length;
 
-      const process = (doneSubtasks / totalSubtasks) * 100;
+      const process =
+        totalSubtasks > 0 ? (doneSubtasks / totalSubtasks) * 100 : 0;
+
       await Task.findByIdAndUpdate(
         updatedTask.parentId,
         { process },
-        { new: true }
+        { new: true, runValidators: false }
       );
-    } else if (!updatedTask.parentId && updatedTask.status === "done") {
+    }
+    // Handle project progress update for main tasks (no parent)
+    else if (!updatedTask.parentId && updatedTask.projectId) {
       const project = await Project.findById(updatedTask.projectId).populate(
         "tasks"
       );
 
-      const totalTasks = project.tasks.length;
+      if (project) {
+        const totalTasks = project.tasks.length;
+        const doneTasks = project.tasks.filter(
+          (task) => task.status === "done"
+        ).length;
 
-      const doneTasks = project.tasks.filter((task) => task.status === "done");
+        const projectProcess =
+          totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
 
-      await Project.findByIdAndUpdate(updatedTask.projectId, {
-        process: (doneTasks / totalTasks) * 100,
-      });
+        await Project.findByIdAndUpdate(
+          updatedTask.projectId,
+          { process: projectProcess },
+          { new: true, runValidators: false }
+        );
+      }
     }
 
     emitTaskUpdated(
@@ -110,6 +128,7 @@ class TaskService {
       updatedTask.status,
       updatedTask
     );
+
     return updatedTask;
   };
   static delete = async (id) => {
@@ -125,6 +144,11 @@ class TaskService {
     const query = Task.find({
       parentId: null,
       projectId,
+    }).populate({
+      path: "subtasks",
+      populate: {
+        path: "user",
+      },
     });
     if (includes && includes.length > 0) {
       const populateArray = buildPopulateArray(
@@ -132,11 +156,12 @@ class TaskService {
         includes.split(",").map((item) => item.trim())
       );
 
-      populateArray.forEach((populateConfig) => {
-        query.populate(
-          populateConfig,
-          this.populateConfig[populateConfig].select
-        );
+      populateArray.forEach((config) => {
+        console.log(this.populateConfig[config]);
+        query.populate({
+          ...this.populateConfig[config],
+          // this.populateConfig[populateConfig].select
+        });
       });
     }
 

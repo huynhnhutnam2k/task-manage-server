@@ -43,6 +43,7 @@ class ProjectController {
     }).send(res);
   };
   getList = async (req, res) => {
+    console.log(req.headers.client_id, req.query);
     new SuccessResponse({
       message: "Get list of projects user success",
       metadata: await ProjectService.getList(req.headers.client_id, req.query),
